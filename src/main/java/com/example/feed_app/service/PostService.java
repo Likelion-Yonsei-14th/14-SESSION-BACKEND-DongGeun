@@ -9,16 +9,20 @@ import com.example.feed_app.exception.CustomException;
 import com.example.feed_app.exception.ErrorCode;
 import com.example.feed_app.exception.ForbiddenException;
 import com.example.feed_app.exception.PostNotFoundException;
+import com.example.feed_app.repository.CommentRepository;
 import com.example.feed_app.repository.PostRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class PostService {
 
     private final PostRepository postRepository;
+
+    private final CommentRepository commentRepository;
 
     public PostResponse createPost(PostCreateRequest request, Member member) {
         validateContent(request.getContent());
@@ -29,6 +33,8 @@ public class PostService {
         return PostResponse.from(savedPost);
     }
 
+
+    @Transactional(readOnly = true)
     public PostResponse getPost(Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(PostNotFoundException::new);
@@ -36,6 +42,7 @@ public class PostService {
         return PostResponse.from(post);
     }
 
+    @Transactional(readOnly = true)
     public List<PostResponse> getAllPosts() {
         return postRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
@@ -57,13 +64,20 @@ public class PostService {
         return PostResponse.from(savedPost);
     }
 
+    @Transactional
     public void deletePost(Long postId, Member member) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(PostNotFoundException::new);
 
         validateOwner(post, member);
 
+        commentRepository.deleteAllByPost(post);
         postRepository.delete(post);
+    }
+
+    public Post findPostById(Long postId) {
+        return postRepository.findById(postId)
+                .orElseThrow(PostNotFoundException::new);
     }
 
     private void validateContent(String content) {
